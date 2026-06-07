@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Lab Report Assistant</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+  <style>
+    :root {
+      --bg:        #0b0d11;
+      --surface:   #111318;
+      --border:    #1f2330;
+      --border2:   #2a2f42;
+      --accent:    #4ade80;
+      --accent2:   #22c55e;
+      --muted:     #4b5473;
+      --muted2:    #6b7499;
+      --text:      #e4e8f7;
+      --text-dim:  #9aa3c4;
+      --danger:    #f87171;
+      --mono:      'Courier New', monospace;
+      --serif:     Georgia, serif;
+      --sans:      system-ui, -apple-system, sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── HEADER ─────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 0 28px;
+      height: 56px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .logo-mark {
+      width: 30px;
+      height: 30px;
+      background: var(--accent);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+
+    .header-title {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      color: var(--text);
+    }
+
+    .header-sub {
+      font-size: 11px;
+      color: var(--muted2);
+      font-family: var(--mono);
+      font-weight: 400;
+    }
+
+    /* ── LAYOUT ──────────────────────────────── */
+    .workspace {
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── INPUT PANEL ─────────────────────────── */
+    .input-panel {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .panel-label {
+      font-size: 10px;
+      font-family: var(--mono);
+      font-weight: 500;
+      letter-spacing: 1.5px;
+      color: var(--muted2);
+      text-transform: uppercase;
+    }
+
+    .form-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    .form-body::-webkit-scrollbar { width: 4px; }
+    .form-body::-webkit-scrollbar-track { background: transparent; }
+    .form-body::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+    .field-group {
+      margin-bottom: 16px;
+    }
+
+    .field-label {
+      font-size: 10px;
+      font-family: var(--mono);
+      letter-spacing: 0.8px;
+      color: var(--muted2);
+      text-transform: uppercase;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .field-required::after {
+      content: ' *';
+      color: var(--accent);
+    }
+
+    input[type="text"],
+    input[type="date"],
+    textarea {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border2);
+      border-radius: 7px;
+      padding: 9px 12px;
+      font-size: 13px;
+      font-family: var(--sans);
+      color: var(--text);
+      transition: border-color 0.15s;
+      resize: vertical;
+    }
+
+    input[type="text"]:focus,
+    input[type="date"]:focus,
+    textarea:focus {
+      outline: none;
+      border-color: rgba(74, 222, 128, 0.4);
+    }
+
+    input[type="text"]::placeholder,
+    textarea::placeholder {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    textarea { min-height: 72px; line-height: 1.5; }
+
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    /* Section divider */
+    .section-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 20px 0 14px;
+    }
+
+    .section-divider span {
+      font-size: 10px;
+      font-family: var(--mono);
+      letter-spacing: 1.5px;
+      color: var(--accent);
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .divider-line {
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── DATA TABLE ──────────────────────────── */
+    .table-container {
+      overflow-x: auto;
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+
+    .exp-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .exp-table th {
+      background: rgba(74, 222, 128, 0.05);
+      padding: 7px 10px;
+      border-bottom: 1px solid var(--border2);
+      color: var(--muted2);
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.5px;
+      font-weight: 500;
+      white-space: nowrap;
+      text-align: left;
+    }
+
+    .exp-table td {
+      border-bottom: 1px solid var(--border);
+      padding: 0;
+    }
+
+    .exp-table tr:last-child td { border-bottom: none; }
+
+    .exp-table td input {
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      padding: 7px 10px;
+      font-size: 12px;
+      font-family: var(--mono);
+      width: 100%;
+      color: var(--text);
+    }
+
+    .exp-table td input:focus { outline: none; background: rgba(74, 222, 128, 0.04); }
+
+    .del-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 7px 10px;
+      font-size: 14px;
+      line-height: 1;
+      transition: color 0.15s;
+      width: 100%;
+      display: block;
+    }
+
+    .del-btn:hover { color: var(--danger); }
+
+    .table-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-ghost {
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-family: var(--mono);
+      letter-spacing: 0.3px;
+      border: 1px solid var(--border2);
+      background: transparent;
+      color: var(--muted2);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-ghost:hover {
+      border-color: rgba(74, 222, 128, 0.4);
+      color: var(--accent);
+    }
+
+    /* ── GENERATE BUTTON ─────────────────────── */
+    .panel-footer {
+      padding: 16px 20px;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .btn-generate {
+      width: 100%;
+      padding: 12px 20px;
+      border-radius: 8px;
+      border: none;
+      background: var(--accent);
+      color: #0b0d11;
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+
+    .btn-generate:hover { background: var(--accent2); transform: translateY(-1px); }
+    .btn-generate:active { transform: translateY(0); }
+
+    .btn-generate:disabled {
+      background: var(--border2);
+      color: var(--muted);
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(0,0,0,0.2);
+      border-top-color: #000;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      display: none;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── OUTPUT PANEL ────────────────────────── */
+    .output-panel {
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      overflow: hidden;
+    }
+
+    .output-header {
+      padding: 0 24px;
+      height: 48px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .output-label {
+      font-size: 10px;
+      font-family: var(--mono);
+      letter-spacing: 1.5px;
+      color: var(--muted2);
+      text-transform: uppercase;
+    }
+
+    .action-group {
+      margin-left: auto;
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-action {
+      padding: 5px 14px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-family: var(--mono);
+      border: 1px solid var(--border2);
+      background: transparent;
+      color: var(--muted2);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-action:hover {
+      border-color: rgba(74, 222, 128, 0.4);
+      color: var(--accent);
+    }
+
+    .btn-action:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    /* Progress */
+    .progress-track {
+      height: 2px;
+      background: var(--border);
+      flex-shrink: 0;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent2), var(--accent));
+      width: 0%;
+      transition: width 0.4s ease;
+    }
+
+    /* Report area */
+    .report-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 40px 48px;
+    }
+
+    .report-scroll::-webkit-scrollbar { width: 5px; }
+    .report-scroll::-webkit-scrollbar-track { background: transparent; }
+    .report-scroll::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+    /* Empty state */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 16px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .empty-title {
+      font-size: 16px;
+      color: var(--muted2);
+    }
+
+    .empty-hint {
+      font-size: 12px;
+      font-family: var(--mono);
+      color: var(--muted);
+      max-width: 260px;
+      line-height: 1.6;
+    }
+
+    /* ── REPORT MARKDOWN STYLES ──────────────── */
+    #report-output {
+      max-width: 780px;
+      margin: 0 auto;
+      line-height: 1.75;
+      font-size: 14px;
+    }
+
+    #report-output h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 8px;
+      line-height: 1.3;
+    }
+
+    #report-output h2 {
+      font-size: 12px;
+      font-family: var(--mono);
+      font-weight: 500;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin: 32px 0 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    #report-output h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-dim);
+      margin: 18px 0 8px;
+    }
+
+    #report-output p {
+      color: var(--text-dim);
+      margin-bottom: 12px;
+    }
+
+    #report-output strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    #report-output em {
+      color: var(--text-dim);
+      font-style: italic;
+    }
+
+    #report-output ul, #report-output ol {
+      padding-left: 22px;
+      margin-bottom: 12px;
+      color: var(--text-dim);
+    }
+
+    #report-output li { margin-bottom: 4px; }
+
+    #report-output table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 13px;
+      font-family: var(--mono);
+    }
+
+    #report-output th {
+      background: rgba(74, 222, 128, 0.06);
+      padding: 8px 14px;
+      border: 1px solid var(--border2);
+      color: var(--accent);
+      font-size: 10px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      text-align: left;
+    }
+
+    #report-output td {
+      padding: 8px 14px;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+    }
+
+    #report-output tr:nth-child(even) td { background: rgba(255,255,255,0.015); }
+
+    #report-output code {
+      font-family: var(--mono);
+      font-size: 12px;
+      background: var(--surface);
+      color: var(--accent);
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border2);
+    }
+
+    #report-output pre {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      padding: 16px 20px;
+      overflow-x: auto;
+      margin: 14px 0;
+    }
+
+    #report-output pre code {
+      background: transparent;
+      border: none;
+      padding: 0;
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    #report-output blockquote {
+      border-left: 2px solid var(--accent);
+      padding: 8px 16px;
+      margin: 12px 0;
+      color: var(--muted2);
+      background: rgba(74, 222, 128, 0.04);
+      border-radius: 0 6px 6px 0;
+    }
+
+    #report-output hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 24px 0;
+    }
+
+    /* ── STATUS BAR ──────────────────────────── */
+    .status-bar {
+      height: 32px;
+      padding: 0 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      font-family: var(--mono);
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .status-indicator {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--border2);
+      flex-shrink: 0;
+    }
+
+    .status-indicator.active {
+      background: var(--accent);
+      box-shadow: 0 0 6px var(--accent);
+      animation: glow 1s ease-in-out infinite alternate;
+    }
+
+    .status-indicator.done { background: var(--accent); }
+    .status-indicator.error { background: var(--danger); }
+
+    @keyframes glow {
+      from { box-shadow: 0 0 4px var(--accent); }
+      to   { box-shadow: 0 0 10px var(--accent); }
+    }
+
+    .word-count {
+      margin-left: auto;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo-mark">⚗</div>
+    <div>
+      <div class="header-title">AI Lab Report Assistant</div>
+      <div class="header-sub">Raw data → Publication-ready report</div>
+    </div>
+  </header>
+
+  <div class="workspace">
+
+    <!-- ── INPUT PANEL ──────────────────── -->
+    <div class="input-panel">
+      <div class="panel-header">
+        <span class="panel-label">Experiment Input</span>
+      </div>
+
+      <div class="form-body">
+
+        <!-- Experiment Info -->
+        <div class="field-group">
+          <label class="field-label field-required">Experiment Title</label>
+          <input type="text" id="title" placeholder="e.g., Verification of Ohm's Law" />
+        </div>
+
+        <div class="two-col">
+          <div class="field-group">
+            <label class="field-label">Subject / Course</label>
+            <input type="text" id="subject" placeholder="e.g., Physics Lab I" />
+          </div>
+          <div class="field-group">
+            <label class="field-label">Date</label>
+            <input type="date" id="date" />
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Student Name</label>
+          <input type="text" id="student_name" placeholder="Your full name" />
+        </div>
+
+        <!-- Content -->
+        <div class="section-divider">
+          <span>Content</span>
+          <div class="divider-line"></div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label field-required">Objective / Aim</label>
+          <textarea id="objective" placeholder="What is the purpose of this experiment?"></textarea>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Hypothesis</label>
+          <textarea id="hypothesis" placeholder="What outcome do you expect and why?" style="min-height:58px;"></textarea>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Apparatus & Materials</label>
+          <textarea id="apparatus" placeholder="List equipment and materials, one per line or comma-separated"></textarea>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Procedure</label>
+          <textarea id="procedure" placeholder="Describe the steps you followed..."></textarea>
+        </div>
+
+        <!-- Data Table -->
+        <div class="section-divider">
+          <span>Experimental Data</span>
+          <div class="divider-line"></div>
+        </div>
+
+        <div class="table-container">
+          <table class="exp-table" id="data-table">
+            <thead>
+              <tr id="header-row">
+                <th>Parameter</th>
+                <th>Trial 1</th>
+                <th>Trial 2</th>
+                <th>Trial 3</th>
+                <th style="width:32px;"></th>
+              </tr>
+            </thead>
+            <tbody id="table-body">
+              <tr>
+                <td><input type="text" placeholder="e.g., Voltage (V)" /></td>
+                <td><input type="text" placeholder="0.00" /></td>
+                <td><input type="text" placeholder="0.00" /></td>
+                <td><input type="text" placeholder="0.00" /></td>
+                <td><button class="del-btn" onclick="deleteRow(this)">×</button></td>
+              </tr>
+              <tr>
+                <td><input type="text" placeholder="e.g., Current (mA)" /></td>
+                <td><input type="text" placeholder="0.00" /></td>
+                <td><input type="text" placeholder="0.00" /></td>
+                <td><input type="text" placeholder="0.00" /></td>
+                <td><button class="del-btn" onclick="deleteRow(this)">×</button></td>
+              </tr>
+              <tr>
+                <td><input type="text" placeholder="e.g., Resistance (Ω)" /></td>
+                <td><input type="text" placeholder="0.00" /></td>
+                <td><input type="text" placeholder="0.00" /></td>
+                <td><input type="text" placeholder="0.00" /></td>
+                <td><button class="del-btn" onclick="deleteRow(this)">×</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-actions" style="margin-bottom:16px;">
+          <button class="btn-ghost" onclick="addRow()">+ Row</button>
+          <button class="btn-ghost" onclick="addColumn()">+ Column</button>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Observations</label>
+          <textarea id="observations" placeholder="What did you observe during the experiment?"></textarea>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Theoretical / Expected Values</label>
+          <textarea id="theoretical_values" placeholder="e.g., Resistance = 100 Ω, g = 9.81 m/s² — used for error analysis" style="min-height:58px;"></textarea>
+        </div>
+
+      </div><!-- /form-body -->
+
+      <div class="panel-footer">
+        <button class="btn-generate" id="generate-btn" onclick="generateReport()">
+          <div class="spinner" id="spinner"></div>
+          <span id="btn-text">Generate Lab Report</span>
+        </button>
+      </div>
+    </div><!-- /input-panel -->
+
+    <!-- ── OUTPUT PANEL ──────────────────── -->
+    <div class="output-panel">
+      <div class="output-header">
+        <span class="output-label">Generated Report</span>
+        <div class="action-group">
+          <button class="btn-action" id="copy-btn" onclick="copyReport()" disabled>Copy</button>
+          <button class="btn-action" id="export-btn" onclick="exportReport()" disabled>Export .md</button>
+        </div>
+      </div>
+
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+
+      <div class="report-scroll" id="report-scroll">
+        <div class="empty-state" id="empty-state">
+          <div class="empty-title">Your report will appear here</div>
+          <div class="empty-hint">Fill in the experiment details and click Generate Lab Report to produce an IEEE-structured academic report</div>
+        </div>
+        <div id="report-output" style="display:none;"></div>
+      </div>
+
+      <div class="status-bar">
+        <div class="status-indicator" id="status-dot"></div>
+        <span id="status-text">Ready</span>
+        <span class="word-count" id="word-count"></span>
+      </div>
+    </div><!-- /output-panel -->
+
+  </div><!-- /workspace -->
+
+  <script>
+    // Init
+    document.getElementById('date').valueAsDate = new Date();
+
+    let dataColCount = 3;
+    let rawMarkdown = '';
+    let isGenerating = false;
+
+    marked.setOptions({ breaks: true, gfm: true });
+
+    // ── Table helpers ──────────────────────────
+
+    function addRow() {
+      const tbody = document.getElementById('table-body');
+      const row = document.createElement('tr');
+      let html = `<td><input type="text" placeholder="Parameter" /></td>`;
+      for (let i = 0; i < dataColCount; i++) {
+        html += `<td><input type="text" placeholder="0.00" /></td>`;
+      }
+      html += `<td><button class="del-btn" onclick="deleteRow(this)">×</button></td>`;
+      row.innerHTML = html;
+      tbody.appendChild(row);
+    }
+
+    function deleteRow(btn) {
+      const row = btn.closest('tr');
+      const tbody = document.getElementById('table-body');
+      if (tbody.rows.length > 1) row.remove();
+    }
+
+    function addColumn() {
+      dataColCount++;
+      const headerRow = document.getElementById('header-row');
+      const lastTh = headerRow.lastElementChild;
+      const th = document.createElement('th');
+      th.textContent = `Trial ${dataColCount}`;
+      headerRow.insertBefore(th, lastTh);
+
+      document.querySelectorAll('#table-body tr').forEach(row => {
+        const lastTd = row.lastElementChild;
+        const td = document.createElement('td');
+        td.innerHTML = `<input type="text" placeholder="0.00" />`;
+        row.insertBefore(td, lastTd);
+      });
+    }
+
+    function getTableAsMarkdown() {
+      const headers = [];
+      document.querySelectorAll('#header-row th').forEach((th, i, all) => {
+        if (i < all.length - 1) headers.push(th.textContent.trim() || `Col ${i + 1}`);
+      });
+
+      const rows = [];
+      document.querySelectorAll('#table-body tr').forEach(tr => {
+        const vals = [];
+        tr.querySelectorAll('input').forEach(inp => vals.push(inp.value.trim() || '—'));
+        if (vals.some(v => v !== '—')) rows.push(vals);
+      });
+
+      if (!rows.length) return 'No experimental data provided.';
+
+      let md = '| ' + headers.join(' | ') + ' |\n';
+      md += '| ' + headers.map(() => '---').join(' | ') + ' |\n';
+      rows.forEach(r => { md += '| ' + r.join(' | ') + ' |\n'; });
+      return md;
+    }
+
+    // ── Status helpers ─────────────────────────
+
+    function setStatus(type, text) {
+      const dot = document.getElementById('status-dot');
+      dot.className = 'status-indicator' + (type ? ' ' + type : '');
+      document.getElementById('status-text').textContent = text;
+    }
+
+    function updateWordCount(text) {
+      const words = text.trim().split(/\s+/).filter(Boolean).length;
+      document.getElementById('word-count').textContent = words ? `${words.toLocaleString()} words` : '';
+    }
+
+    // ── Generate ───────────────────────────────
+
+    async function generateReport() {
+      if (isGenerating) return;
+
+      const title = document.getElementById('title').value.trim();
+      const objective = document.getElementById('objective').value.trim();
+      if (!title || !objective) {
+        alert('Experiment Title and Objective are required.');
+        return;
+      }
+
+      isGenerating = true;
+      rawMarkdown = '';
+
+      const btn = document.getElementById('generate-btn');
+      btn.disabled = true;
+      document.getElementById('btn-text').textContent = 'Generating…';
+      document.getElementById('spinner').style.display = 'block';
+      document.getElementById('copy-btn').disabled = true;
+      document.getElementById('export-btn').disabled = true;
+
+      document.getElementById('empty-state').style.display = 'none';
+      const output = document.getElementById('report-output');
+      output.style.display = 'block';
+      output.innerHTML = '';
+
+      setStatus('active', 'Generating report…');
+      updateWordCount('');
+
+      // Animated progress
+      let prog = 0;
+      const fill = document.getElementById('progress-fill');
+      const progInterval = setInterval(() => {
+        prog = Math.min(prog + Math.random() * 2.5, 88);
+        fill.style.width = prog + '%';
+      }, 350);
+
+      const payload = {
+        title,
+        subject:            document.getElementById('subject').value,
+        date:               document.getElementById('date').value,
+        student_name:       document.getElementById('student_name').value,
+        objective,
+        hypothesis:         document.getElementById('hypothesis').value,
+        apparatus:          document.getElementById('apparatus').value,
+        procedure:          document.getElementById('procedure').value,
+        raw_data:           getTableAsMarkdown(),
+        observations:       document.getElementById('observations').value,
+        theoretical_values: document.getElementById('theoretical_values').value,
+      };
+
+      try {
+        const res = await fetch('/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) throw new Error(`Server error: ${res.status}`);
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        const scroll = document.getElementById('report-scroll');
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const lines = decoder.decode(value).split('\n');
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const raw = line.slice(6).trim();
+            if (raw === '[DONE]') break;
+            try {
+              const parsed = JSON.parse(raw);
+              if (parsed.error) throw new Error(parsed.error);
+              rawMarkdown += parsed.text;
+              output.innerHTML = marked.parse(rawMarkdown);
+              scroll.scrollTop = scroll.scrollHeight;
+              updateWordCount(rawMarkdown);
+            } catch (e) {
+              if (e.message !== 'Unexpected end of JSON input') throw e;
+            }
+          }
+        }
+
+        clearInterval(progInterval);
+        fill.style.width = '100%';
+        setTimeout(() => { fill.style.width = '0%'; }, 800);
+
+        setStatus('done', 'Report generated successfully');
+        document.getElementById('copy-btn').disabled = false;
+        document.getElementById('export-btn').disabled = false;
+
+      } catch (err) {
+        clearInterval(progInterval);
+        fill.style.width = '0%';
+        setStatus('error', 'Error: ' + err.message);
+        output.innerHTML = `<p style="color:var(--danger);font-family:var(--mono);font-size:13px;">Error: ${err.message}</p>`;
+      }
+
+      isGenerating = false;
+      btn.disabled = false;
+      document.getElementById('btn-text').textContent = 'Generate Lab Report';
+      document.getElementById('spinner').style.display = 'none';
+    }
+
+    // ── Copy ───────────────────────────────────
+
+    function copyReport() {
+      if (!rawMarkdown) return;
+      navigator.clipboard.writeText(rawMarkdown).then(() => {
+        const btn = document.getElementById('copy-btn');
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = 'Copy'; }, 1800);
+      });
+    }
+
+    // ── Export ─────────────────────────────────
+
+    async function exportReport() {
+      if (!rawMarkdown) return;
+      const title = document.getElementById('title').value || 'lab_report';
+      const res = await fetch('/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: rawMarkdown, title }),
+      });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = title.trim().replace(/\s+/g, '_').toLowerCase() + '_report.md';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>
